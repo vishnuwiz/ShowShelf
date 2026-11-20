@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>ShowShelf white symbol</title>
+  <g fill="#FFFFFF">
+    <rect x="250" y="360" width="140" height="250" rx="34"/>
+    <rect x="440" y="250" width="140" height="360" rx="34"/>
+    <g transform="rotate(-12 725 440)"><rect x="655" y="270" width="140" height="340" rx="34"/></g>
+    <rect x="178" y="650" width="668" height="68" rx="34"/>
+  </g>
+</svg>
