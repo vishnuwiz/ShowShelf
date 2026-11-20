@@ -1,10 +1,18 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'firebase_options.dart';
 import 'shell.dart';
 import 'state.dart';
 import 'theme.dart';
 
-void main() => runApp(ShowShelfApp(state: AppState()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(ShowShelfApp(state: AppState()));
+}
 
 class ShowShelfApp extends StatelessWidget {
   const ShowShelfApp({super.key, required this.state});
