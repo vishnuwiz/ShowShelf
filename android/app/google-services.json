@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "905009635182",
+    "project_id": "showshelf-a6ad0",
+    "storage_bucket": "showshelf-a6ad0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:905009635182:android:983ee9a39d629a572c6b7f",
+        "android_client_info": {
+          "package_name": "com.vishnu.showshelf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEdUBcdPr-tZkHVAWkoNK5sD01KA0L6D4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
