@@ -26,7 +26,7 @@ const _fade = Duration(milliseconds: 350);
 
 const _markWidth = 156.0; // same width as the native launch image
 const _name = 'ShowShelf';
-const _tagline = 'Never miss an episode.';
+const _tagline = 'Your stories. Your collection.';
 
 /// Damped spring from 0 to 1. [w] is stiffness (rad/s), [z] the damping ratio (< 1 overshoots).
 double _spring(double t, double w, double z) {
