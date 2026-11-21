@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'firebase_options.dart';
+import 'firestore_store.dart';
 import 'shell.dart';
 import 'state.dart';
 import 'theme.dart';
@@ -11,7 +14,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(ShowShelfApp(state: AppState()));
+  final state = AppState(cloud: await FirestoreStore.connect());
+  runApp(ShowShelfApp(state: state));
+  unawaited(state.restore());
 }
 
 class ShowShelfApp extends StatelessWidget {
