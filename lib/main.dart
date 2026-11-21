@@ -5,18 +5,22 @@ import 'firebase_options.dart';
 import 'shell.dart';
 import 'state.dart';
 import 'theme.dart';
+import 'ui/splash.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(ShowShelfApp(state: AppState()));
+  runApp(ShowShelfApp(state: AppState(), splash: true));
 }
 
 class ShowShelfApp extends StatelessWidget {
-  const ShowShelfApp({super.key, required this.state});
+  const ShowShelfApp({super.key, required this.state, this.splash = false});
   final AppState state;
+
+  /// Play the animated splash before the app (off in tests).
+  final bool splash;
 
   @override
   Widget build(BuildContext context) => AppScope(
@@ -28,7 +32,7 @@ class ShowShelfApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: buildTheme(state.dark ? Ss.dark : Ss.light),
         themeAnimationDuration: const Duration(milliseconds: 300),
-        home: const Shell(),
+        home: splash ? const SplashGate(child: Shell()) : const Shell(),
       ),
     ),
   );
