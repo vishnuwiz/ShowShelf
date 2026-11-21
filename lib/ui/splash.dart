@@ -18,10 +18,12 @@ const _footX = 691.9, _footY = 620.8;
 const _leanDeg = -12.0;
 
 // Timeline, in seconds.
-const _tShelf = .05, _tA = .20, _tB = .30, _tC = .40, _tLean = .85, _tWord = 1.10;
-const _stagger = .04;
-const _total = 2.0;
-const _hold = Duration(milliseconds: 200);
+const _tShelf = .05, _tA = .15, _tB = .22, _tC = .29, _tLean = .65, _tWord = .90;
+const _stagger = .035; // between wordmark letters
+const _tLine1 = 1.25, _tLine2 = 1.40; // the two halves of the tagline
+const _tCats = 1.60, _catStagger = .10; // MOVIES · SERIES · ANIME
+const _total = 2.3;
+const _hold = Duration(milliseconds: 250);
 const _fade = Duration(milliseconds: 350);
 
 const _markWidth = 156.0; // same width as the native launch image
@@ -146,10 +148,12 @@ class _SplashArt extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (var i = 0; i < _name.length; i++) _Letter(_name[i], _easeOut((t - _tWord - i * _stagger) / .5)),
+                        for (var i = 0; i < _name.length; i++) _Letter(_name[i], t, _tWord + i * _stagger),
                       ],
                     ),
                   ),
+                  Transform.translate(offset: const Offset(0, 150), child: _Tagline(t)),
+                  Transform.translate(offset: const Offset(0, 184), child: _Categories(t)),
                 ],
               );
             },
@@ -160,16 +164,17 @@ class _SplashArt extends StatelessWidget {
   );
 }
 
+/// One wordmark letter: springs up with a small overshoot while fading in.
 class _Letter extends StatelessWidget {
-  const _Letter(this.ch, this.p);
+  const _Letter(this.ch, this.t, this.start);
   final String ch;
-  final double p;
+  final double t, start;
 
   @override
   Widget build(BuildContext context) => Opacity(
-    opacity: p,
+    opacity: _easeOut((t - start) / .25),
     child: Transform.translate(
-      offset: Offset(0, (1 - p) * 16),
+      offset: Offset(0, (1 - _spring(t - start, 16, .6)) * 18),
       child: Text(
         ch,
         style: const TextStyle(
@@ -182,6 +187,75 @@ class _Letter extends StatelessWidget {
         ),
       ),
     ),
+  );
+}
+
+/// "YOUR STORIES. YOUR COLLECTION." The two sentences rise in one after the other.
+class _Tagline extends StatelessWidget {
+  const _Tagline(this.t);
+  final double t;
+
+  static const _style = TextStyle(
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w700,
+    fontSize: 13,
+    height: 1,
+    letterSpacing: .4,
+    color: _ink,
+  );
+
+  Widget _part(String text, double start) {
+    final p = _easeOut((t - start) / .45);
+    return Opacity(
+      opacity: p,
+      child: Transform.translate(offset: Offset(0, (1 - p) * 10), child: Text(text, style: _style)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _part('YOUR STORIES.', _tLine1),
+      const SizedBox(width: 6),
+      _part('YOUR COLLECTION.', _tLine2),
+    ],
+  );
+}
+
+/// "MOVIES · SERIES · ANIME": each word pops in with a springy scale.
+class _Categories extends StatelessWidget {
+  const _Categories(this.t);
+  final double t;
+
+  static const _style = TextStyle(
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w500,
+    fontSize: 11,
+    height: 1,
+    letterSpacing: 1.4,
+    color: Color(0x99111111), // ink at 60%
+  );
+  static const _words = ['MOVIES', 'SERIES', 'ANIME'];
+
+  Widget _pop(double start, Widget child) => Opacity(
+    opacity: _easeOut((t - start) / .2),
+    child: Transform.scale(scale: .6 + .4 * _spring(t - start, 18, .55), child: child),
+  );
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < _words.length; i++) ...[
+        if (i > 0)
+          _pop(
+            _tCats + i * _catStagger - .05,
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('·', style: _style)),
+          ),
+        _pop(_tCats + i * _catStagger, Text(_words[i], style: _style)),
+      ],
+    ],
   );
 }
 
@@ -210,11 +284,15 @@ class _MarkPainter extends CustomPainter {
       ..scale(size.width / _gw)
       ..translate(-_gcx, -_gcy);
 
-    // Shelf wipes out from the centre.
+    // Shelf wipes out from the centre, then dips a touch as the leaning book
+    // lands on it (a little weight in the animation).
     final shelf = _easeOut((t - _tShelf) / .45);
     if (shelf > 0) {
+      final u = ((t - (_tLean + .18)) / .4).clamp(0.0, 1.0).toDouble();
+      final dip = 6 * math.sin(math.pi * u) * (1 - u);
       canvas
         ..save()
+        ..translate(0, dip)
         ..translate(_gcx, 0)
         ..scale(shelf, 1)
         ..translate(-_gcx, 0)
