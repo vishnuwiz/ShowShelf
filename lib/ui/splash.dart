@@ -18,7 +18,7 @@ const _footX = 691.9, _footY = 620.8;
 const _leanDeg = -12.0;
 
 // Timeline, in seconds.
-const _tShelf = .05, _tA = .20, _tB = .30, _tC = .40, _tLean = .85, _tWord = 1.10;
+const _tShelf = .05, _tA = .20, _tB = .30, _tC = .40, _tLean = .85, _tWord = 1.10, _tTag = 1.50;
 const _stagger = .04;
 const _total = 2.0;
 const _hold = Duration(milliseconds: 200);
@@ -26,6 +26,7 @@ const _fade = Duration(milliseconds: 350);
 
 const _markWidth = 156.0; // same width as the native launch image
 const _name = 'ShowShelf';
+const _tagline = 'All your shows, one shelf.';
 
 /// Damped spring from 0 to 1. [w] is stiffness (rad/s), [z] the damping ratio (< 1 overshoots).
 double _spring(double t, double w, double z) {
@@ -149,6 +150,28 @@ class _SplashArt extends StatelessWidget {
                         for (var i = 0; i < _name.length; i++) _Letter(_name[i], _easeOut((t - _tWord - i * _stagger) / .5)),
                       ],
                     ),
+                  ),
+                  Builder(
+                    builder: (context) {
+                      final p = _easeOut((t - _tTag) / .45);
+                      return Transform.translate(
+                        offset: Offset(0, 152 + (1 - p) * 10),
+                        child: Opacity(
+                          opacity: p,
+                          child: const Text(
+                            _tagline,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w500,
+                              fontSize: 15,
+                              height: 1,
+                              letterSpacing: .2,
+                              color: Color(0xB3111111), // ink at 70%
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               );
