@@ -23,3 +23,9 @@
 - iOS: generate a 1024 × 1024 full-bleed icon from the square master. Do not add transparent margins or pre-round the corners; iOS applies its own mask.
 - Monochrome Android icon: use the symbol as a single-color mask, without the lime tile.
 - Keep the app display name as `ShowShelf`.
+
+## Generated platform assets
+Run `python3 tool/generate_platform_icons.py` (needs `rsvg-convert` and Pillow) to regenerate every launcher icon, launch image and web icon from the master glyph.
+- iOS ships light, dark and tinted 1024 icons (single-size asset catalog, iOS 18 appearances).
+- Android adaptive foreground and monochrome layers are scaled to the 66dp safe zone.
+- The launch screens (Android, Android 12+, iOS) are lime with the ink glyph centred, matching the in-app splash in `lib/ui/splash.dart`.
