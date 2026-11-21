@@ -1,44 +1,40 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
-// Brand colours (assets/branding/BRAND.md).
-const _lime = Color(0xFFC5FF36);
-const _ink = Color(0xFF111111);
+import 'brand_mark.dart';
 
-// Glyph geometry in the 1024-unit master (assets/branding/showshelf-app-icon.svg).
-// The leaning book is stored upright with its foot on the spot where the final,
-// rotated book rests, so it can tip over by rotating about that foot.
-const _gw = 668.0, _gh = 468.0; // glyph bounding box width, height
-const _gcx = 512.0, _gcy = 484.0; // its centre
-const _bookBottom = 610.0;
-const _footX = 691.9, _footY = 620.8;
-const _leanDeg = -12.0;
-
-// Timeline, in seconds.
-const _tShelf = .05, _tA = .15, _tB = .22, _tC = .29, _tLean = .65, _tWord = .90;
-const _stagger = .035; // between wordmark letters
-const _tLine1 = 1.25, _tLine2 = 1.40; // the two halves of the tagline
-const _tCats = 1.60, _catStagger = .10; // MOVIES · SERIES · ANIME
-const _total = 2.3;
+// Timeline, in seconds. Mirrors the "Neon Filmstrip Reveal" animation:
+// play button glows, the film ribbon winds round it into an S, the wordmark
+// resolves out of a blur, then neon arcs sweep the corners.
+const _tGlow = .0; // play button glow pulses in
+const _tTop = .30, _tBottom = .52; // the two ribbons wind in
+const _tSettle = 1.45; // neon fades, ribbon goes solid
+const _tWord = 1.25;
+const _tTag = 1.65;
+const _tArcs = 1.85;
+const _total = 2.7;
 const _hold = Duration(milliseconds: 250);
 const _fade = Duration(milliseconds: 350);
 
-const _markWidth = 156.0; // same width as the native launch image
-const _name = 'ShowShelf';
+/// Mark width in dp. The native launch screens draw the play triangle for this
+/// same box (tool/generate_platform_icons.py), so the hand-off does not jump.
+const _markWidth = 112.0;
+const _bg = kCharcoal;
 
-/// Damped spring from 0 to 1. [w] is stiffness (rad/s), [z] the damping ratio (< 1 overshoots).
-double _spring(double t, double w, double z) {
-  if (t <= 0) return 0;
-  final wd = w * math.sqrt(1 - z * z);
-  return 1 - math.exp(-z * w * t) * (math.cos(wd * t) + (z * w / wd) * math.sin(wd * t));
-}
+double _clamp01(double x) => x.clamp(0.0, 1.0).toDouble();
 
 double _easeOut(double x) {
-  final v = x.clamp(0.0, 1.0).toDouble();
-  return 1 - math.pow(1 - v, 4).toDouble();
+  final v = _clamp01(x);
+  return 1 - math.pow(1 - v, 3).toDouble();
+}
+
+double _easeInOut(double x) {
+  final v = _clamp01(x);
+  return v < .5 ? 4 * v * v * v : 1 - math.pow(-2 * v + 2, 3).toDouble() / 2;
 }
 
 /// Shows the animated ShowShelf splash on first launch, then reveals [child].
@@ -123,9 +119,9 @@ class _SplashArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
-    value: SystemUiOverlayStyle.dark,
+    value: SystemUiOverlayStyle.light,
     child: Material(
-      color: _lime,
+      color: _bg,
       child: Semantics(
         label: 'ShowShelf',
         child: ExcludeSemantics(
@@ -133,27 +129,32 @@ class _SplashArt extends StatelessWidget {
             animation: controller,
             builder: (context, _) {
               final t = controller.value * _total;
+              final markHeight = _markWidth * kMarkH / kMarkW;
               return Stack(
+                fit: StackFit.expand,
                 alignment: Alignment.center,
                 children: [
-                  SizedBox(
-                    width: _markWidth,
-                    height: _markWidth * _gh / _gw,
-                    child: CustomPaint(painter: _MarkPainter(t)),
-                  ),
-                  // Wordmark sits below the glyph; the glyph itself stays dead-centre
-                  // so the hand-off from the native launch image doesn't jump.
-                  Transform.translate(
-                    offset: const Offset(0, 110),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < _name.length; i++) _Letter(_name[i], t, _tWord + i * _stagger),
-                      ],
+                  // Soft stage light behind the mark, plus the neon corner arcs.
+                  CustomPaint(painter: _StagePainter(t)),
+                  // The mark stays dead-centre so it lines up with the native launch screen.
+                  Center(
+                    child: SizedBox(
+                      width: _markWidth,
+                      height: markHeight,
+                      child: CustomPaint(painter: _MarkPainter(t)),
                     ),
                   ),
-                  Transform.translate(offset: const Offset(0, 150), child: _Tagline(t)),
-                  Transform.translate(offset: const Offset(0, 184), child: _Categories(t)),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Transform.translate(
+                      offset: Offset(0, markHeight / 2 + 52),
+                      child: _Wordmark(t),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Transform.translate(offset: Offset(0, markHeight / 2 + 92), child: _Tagline(t)),
+                  ),
                 ],
               );
             },
@@ -164,163 +165,216 @@ class _SplashArt extends StatelessWidget {
   );
 }
 
-/// One wordmark letter: springs up with a small overshoot while fading in.
-class _Letter extends StatelessWidget {
-  const _Letter(this.ch, this.t, this.start);
-  final String ch;
-  final double t, start;
+/// "ShowShelf": white "Show", lime "Shelf", resolving out of a blur like the animation.
+class _Wordmark extends StatelessWidget {
+  const _Wordmark(this.t);
+  final double t;
+
+  static const _style = TextStyle(
+    fontFamily: 'Poppins',
+    fontWeight: FontWeight.w700,
+    fontSize: 34,
+    height: 1,
+    letterSpacing: -.4,
+  );
 
   @override
-  Widget build(BuildContext context) => Opacity(
-    opacity: _easeOut((t - start) / .25),
-    child: Transform.translate(
-      offset: Offset(0, (1 - _spring(t - start, 16, .6)) * 18),
-      child: Text(
-        ch,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w800,
-          fontSize: 30,
-          height: 1,
-          letterSpacing: -.6,
-          color: _ink,
+  Widget build(BuildContext context) {
+    final p = _easeOut((t - _tWord) / .6);
+    Widget text = Opacity(
+      opacity: p,
+      child: Transform.translate(
+        offset: Offset(0, (1 - p) * 8),
+        child: const Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: 'Show', style: TextStyle(color: Colors.white)),
+              TextSpan(text: 'Shelf', style: TextStyle(color: kLime)),
+            ],
+            style: _style,
+          ),
         ),
       ),
-    ),
-  );
+    );
+    final sigma = (1 - p) * 9;
+    if (sigma > .05) {
+      text = ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal), child: text);
+    }
+    return text;
+  }
 }
 
-/// "YOUR STORIES. YOUR COLLECTION." The two sentences rise in one after the other.
+/// "MOVIES · SERIES · YOUR LIST"
 class _Tagline extends StatelessWidget {
   const _Tagline(this.t);
   final double t;
 
-  static const _style = TextStyle(
-    fontFamily: 'Inter',
-    fontWeight: FontWeight.w700,
-    fontSize: 13,
-    height: 1,
-    letterSpacing: .4,
-    color: _ink,
-  );
-
-  Widget _part(String text, double start) {
-    final p = _easeOut((t - start) / .45);
+  @override
+  Widget build(BuildContext context) {
+    final p = _easeOut((t - _tTag) / .5);
     return Opacity(
       opacity: p,
-      child: Transform.translate(offset: Offset(0, (1 - p) * 10), child: Text(text, style: _style)),
+      child: Transform.translate(
+        offset: Offset(0, (1 - p) * 6),
+        child: const Text(
+          'MOVIES  ·  SERIES  ·  YOUR LIST',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w500,
+            fontSize: 11,
+            height: 1,
+            letterSpacing: 2.6,
+            color: Color(0xFF8E939D),
+          ),
+        ),
+      ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _part('YOUR STORIES.', _tLine1),
-      const SizedBox(width: 6),
-      _part('YOUR COLLECTION.', _tLine2),
-    ],
-  );
 }
 
-/// "MOVIES · SERIES · ANIME": each word pops in with a springy scale.
-class _Categories extends StatelessWidget {
-  const _Categories(this.t);
-  final double t;
-
-  static const _style = TextStyle(
-    fontFamily: 'Inter',
-    fontWeight: FontWeight.w500,
-    fontSize: 11,
-    height: 1,
-    letterSpacing: 1.4,
-    color: Color(0x99111111), // ink at 60%
-  );
-  static const _words = ['MOVIES', 'SERIES', 'ANIME'];
-
-  Widget _pop(double start, Widget child) => Opacity(
-    opacity: _easeOut((t - start) / .2),
-    child: Transform.scale(scale: .6 + .4 * _spring(t - start, 18, .55), child: child),
-  );
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      for (var i = 0; i < _words.length; i++) ...[
-        if (i > 0)
-          _pop(
-            _tCats + i * _catStagger - .05,
-            const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('·', style: _style)),
-          ),
-        _pop(_tCats + i * _catStagger, Text(_words[i], style: _style)),
-      ],
-    ],
-  );
-}
-
+/// The mark. The play button is solid from the first frame (the native launch screen
+/// shows it); the two ribbons then wind in around it with a neon glow that settles.
 class _MarkPainter extends CustomPainter {
   const _MarkPainter(this.t);
   final double t;
 
-  static RRect _r(double x, double y, double w, double h) => RRect.fromLTRBR(x, y, x + w, y + h, const Radius.circular(34));
+  static final _pad = Rect.fromLTWH(-60, -60, kMarkW + 120, kMarkH + 120);
 
-  /// Scales [draw] vertically about [baseY] (a book growing up from the shelf).
-  static void _grow(Canvas canvas, double baseY, double s, void Function() draw) {
+  /// Draws [path] revealed by a soft wipe. [p] is 0..1 progress; [fromLeft] picks the direction.
+  void _ribbon(Canvas canvas, Path path, double p, bool fromLeft, double drop, double neon) {
+    if (p <= 0) return;
+    final eased = _easeInOut(p);
+    const soft = .35;
+    final edge = eased * (1 + soft);
+    final a = _clamp01(edge - soft), b = _clamp01(edge);
+    const opaque = Colors.white;
+    const clear = Color(0x00FFFFFF);
+    final gradient = LinearGradient(
+      begin: fromLeft ? Alignment.centerLeft : Alignment.centerRight,
+      end: fromLeft ? Alignment.centerRight : Alignment.centerLeft,
+      colors: [opaque, opaque, clear],
+      stops: [0, a, b <= a ? a + .001 : b],
+    );
+
     canvas
       ..save()
-      ..translate(0, baseY)
-      ..scale(1, s)
-      ..translate(0, -baseY);
-    draw();
-    canvas.restore();
+      ..translate(0, drop * (1 - _easeOut(p)))
+      ..saveLayer(_pad, Paint());
+    if (neon > 0) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = kLime.withValues(alpha: .6 * neon)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
+      );
+    }
+    // Early on the ribbon is a darker, translucent lime; it fills to solid as the neon settles.
+    final solid = _easeOut((t - _tSettle + .5) / .6);
+    canvas.drawPath(path, Paint()..color = Color.lerp(const Color(0xFF6F9A22), kLime, solid)!);
+    canvas
+      ..drawRect(_pad, Paint()..shader = gradient.createShader(Rect.fromLTWH(0, 0, kMarkW, kMarkH))..blendMode = BlendMode.dstIn)
+      ..restore()
+      ..restore();
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = _ink;
-    canvas
-      ..translate(size.width / 2, size.height / 2)
-      ..scale(size.width / _gw)
-      ..translate(-_gcx, -_gcy);
+    canvas.scale(size.width / kMarkW);
 
-    // Shelf wipes out from the centre, then dips a touch as the leaning book
-    // lands on it (a little weight in the animation).
-    final shelf = _easeOut((t - _tShelf) / .45);
-    if (shelf > 0) {
-      final u = ((t - (_tLean + .18)) / .4).clamp(0.0, 1.0).toDouble();
-      final dip = 6 * math.sin(math.pi * u) * (1 - u);
-      canvas
-        ..save()
-        ..translate(0, dip)
-        ..translate(_gcx, 0)
-        ..scale(shelf, 1)
-        ..translate(-_gcx, 0)
-        ..drawRRect(_r(178, 650, 668, 68), paint)
-        ..restore();
+    final glowIn = _easeOut((t - _tGlow) / .6);
+    final settle = _easeOut((t - _tSettle) / .7);
+    final neon = (1 - settle * .75);
+
+    // Play button: solid at t = 0, a neon halo pulses in around it.
+    if (glowIn > 0) {
+      canvas.drawPath(
+        markPlay,
+        Paint()
+          ..color = kLime.withValues(alpha: .7 * glowIn * neon)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * glowIn),
+      );
     }
+    canvas.drawPath(markPlay, Paint()..color = kLime);
 
-    double rise(double start) => _spring(t - start, 15, .62);
+    _ribbon(canvas, markTop, (t - _tTop) / .85, true, -26, neon * _clamp01((t - _tTop) / .3));
+    _ribbon(canvas, markBottom, (t - _tBottom) / .85, false, 26, neon * _clamp01((t - _tBottom) / .3));
 
-    final a = rise(_tA);
-    if (a > .001) _grow(canvas, _bookBottom, a, () => canvas.drawRRect(_r(250, 360, 140, 250), paint));
-    final b = rise(_tB);
-    if (b > .001) _grow(canvas, _bookBottom, b, () => canvas.drawRRect(_r(440, 250, 140, 360), paint));
-    final c = rise(_tC);
-    if (c > .001) {
-      _grow(canvas, _footY, c, () {
-        final lean = _leanDeg * math.pi / 180 * _spring(t - _tLean, 12, .45);
-        canvas
-          ..save()
-          ..translate(_footX, _footY)
-          ..rotate(lean)
-          ..translate(-_footX, -_footY)
-          ..drawRRect(_r(_footX, _footY - 340, 140, 340), paint)
-          ..restore();
-      });
+    // After it settles, a faint halo stays so the mark reads as neon on the dark stage.
+    if (settle > 0) {
+      canvas.drawPath(
+        buildMarkPath(),
+        Paint()
+          ..color = kLime.withValues(alpha: .16 * settle)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+      );
     }
   }
 
   @override
   bool shouldRepaint(_MarkPainter old) => old.t != t;
+}
+
+/// Dark stage: a soft light behind the mark and two neon arcs that sweep the opposite corners.
+class _StagePainter extends CustomPainter {
+  const _StagePainter(this.t);
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centre = size.center(Offset.zero);
+    final light = _easeOut(t / 1.4);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [kLime.withValues(alpha: .07 * light), const Color(0x00C6FF4D)],
+        ).createShader(Rect.fromCircle(center: centre, radius: size.shortestSide * .75)),
+    );
+
+    final p = _easeInOut((t - _tArcs) / .75);
+    if (p <= 0) return;
+    // A circle that just clips the corners, so each arc hugs one corner of the screen.
+    final r = centre.distance * .9;
+    final rect = Rect.fromCircle(center: centre, radius: r);
+    final toCorner = math.atan2(-size.height, size.width);
+    // One arc around the top-right corner, one around the bottom-left.
+    for (final base in [toCorner, toCorner + math.pi]) {
+      const span = math.pi / 3.2;
+      const n = 18;
+      for (var i = 0; i < n; i++) {
+        final u = (i + .5) / n;
+        final shown = _clamp01(p * 1.25 - u * .25);
+        final alpha = math.sin(math.pi * u) * shown * (1 - .35 * _clamp01((t - _tArcs - .8) / .5));
+        if (alpha <= .01) continue;
+        final start = base - span / 2 + span * i / n;
+        final seg = span / n + .004;
+        canvas
+          ..drawArc(
+            rect,
+            start,
+            seg,
+            false,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 9
+              ..color = kLime.withValues(alpha: .22 * alpha)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+          )
+          ..drawArc(
+            rect,
+            start,
+            seg,
+            false,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2
+              ..strokeCap = StrokeCap.round
+              ..color = kLime.withValues(alpha: .9 * alpha),
+          );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StagePainter old) => old.t != t;
 }

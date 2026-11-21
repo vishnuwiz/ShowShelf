@@ -47,4 +47,4 @@ lib/
 
 - All titles, people and poster art are fictional. Posters are painted in code (gradient, light source, silhouette, title type) so no real artwork is used.
 - Data is in-memory demo data pinned to 20 November 2026; changes reset on restart.
-- Fonts (Inter, Bebas Neue, Fraunces ExtraBold) are bundled under `assets/fonts` with their OFL licences.
+- Fonts (Inter, Poppins, Bebas Neue, Fraunces ExtraBold) are bundled under `assets/fonts` with their OFL licences.

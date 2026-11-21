@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../auth_service.dart';
 import '../theme.dart';
+import '../ui/brand_mark.dart';
 import '../ui/kit.dart';
 
 final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
@@ -130,9 +131,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: IconBtn(I.x, label: 'Close', onTap: () => Navigator.of(context).pop()),
                     ),
                   const SizedBox(height: 8),
-                  const ExcludeSemantics(child: _Spines()),
+                  const ExcludeSemantics(child: _CinemaHeader()),
                   const SizedBox(height: 22),
-                  Entrance(key: ValueKey('t$_mode'), duration: 320, child: H1(title, size: 30)),
+                  Entrance(
+                    key: ValueKey('t$_mode'),
+                    duration: 320,
+                    child: Semantics(
+                      header: true,
+                      child: Text(title, style: ts(30, w: FontWeight.w700, ls: -.02, height: 1.15, color: c.text).copyWith(fontFamily: 'Poppins')),
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Text(sub, style: ts(15, color: c.sub, height: 1.4)),
                   if (!up) ...[
@@ -205,12 +213,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 22),
                     Row(
                       children: [
-                        Expanded(child: Container(height: 1, color: c.line)),
+                        Expanded(child: _Perforation(color: c.line)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Text('or', style: ts(13, color: c.sub)),
                         ),
-                        Expanded(child: Container(height: 1, color: c.line)),
+                        Expanded(child: _Perforation(color: c.line)),
                       ],
                     ),
                     const SizedBox(height: 22),
@@ -366,46 +374,65 @@ class _FieldState extends State<_Field> {
   }
 }
 
-/// A row of spines on a shelf. They rise in turn and the last one tips over,
-/// the same gesture as the app icon.
-class _Spines extends StatelessWidget {
-  const _Spines();
+/// Film perforations as a divider: a row of small rounded holes, like the edge of a reel.
+class _Perforation extends StatelessWidget {
+  const _Perforation({required this.color});
+  final Color color;
 
-  static const _books = [(26.0, 88.0, 28), (34.0, 112.0, 200), (22.0, 98.0, 330), (38.0, 124.0, 150), (28.0, 94.0, 48), (32.0, 116.0, 262)];
+  @override
+  Widget build(BuildContext context) => SizedBox(height: 6, child: CustomPaint(painter: _PerforationPainter(color)));
+}
 
-  Widget _shelf(Ss c, double t) {
-    double seg(int i) => kEase.transform(((t * 1300 - i * 90) / 420).clamp(0.0, 1.0));
-    final lean = kSpring.transform(((t * 1300 - 700) / 380).clamp(0.0, 1.0));
-    return SizedBox(
-      height: 140,
+class _PerforationPainter extends CustomPainter {
+  const _PerforationPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    const hole = 7.0, gap = 5.0;
+    final count = (size.width / (hole + gap)).floor();
+    final x0 = (size.width - count * (hole + gap) + gap) / 2;
+    for (var i = 0; i < count; i++) {
+      final x = x0 + i * (hole + gap);
+      canvas.drawRRect(RRect.fromLTRBR(x, 0, x + hole, size.height, const Radius.circular(1.8)), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PerforationPainter old) => old.color != color;
+}
+
+/// A little screening room: a strip of film frames slides in behind the ShowShelf
+/// mark, which glows on. Runs once (no loop), and is static with reduced motion.
+class _CinemaHeader extends StatelessWidget {
+  const _CinemaHeader();
+
+  Widget _stage(BuildContext context, double t) {
+    final c = Ss.of(context);
+    return Container(
+      height: 132,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: kCharcoal,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: c.isDark ? c.line : const Color(0x33111216)),
+      ),
       child: Stack(
-        alignment: Alignment.bottomCenter,
+        fit: StackFit.expand,
         children: [
-          Container(height: 4, decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2))),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4, right: 26),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (var i = 0; i < _books.length; i++)
-                  Padding(
-                    padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
-                    child: Opacity(
-                      opacity: seg(i),
-                      child: Transform.translate(
-                        offset: Offset(0, 36 * (1 - seg(i))),
-                        child: Transform.rotate(
-                          angle: i == _books.length - 1 ? .21 * lean : 0,
-                          alignment: Alignment.bottomRight,
-                          child: _Spine(_books[i].$1, _books[i].$2, _books[i].$3),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+          CustomPaint(painter: _FilmStripPainter(t)),
+          // Dim the strip behind the mark so the lime reads, and let it show at the edges.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                radius: .6,
+                colors: [Color(0xF2111216), Color(0xAA111216), Color(0x00111216)],
+                stops: [0, .5, 1],
+              ),
             ),
           ),
+          Center(child: ShowShelfMark(width: 50, glow: t)),
         ],
       ),
     );
@@ -413,38 +440,66 @@ class _Spines extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = Ss.of(context);
-    final d = ms(context, 1300);
-    if (d == Duration.zero) return _shelf(c, 1);
+    final d = ms(context, 1600);
+    if (d == Duration.zero) return _stage(context, 1);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: d,
-      builder: (_, t, _) => _shelf(c, t),
+      curve: kEase,
+      builder: (context, t, _) => _stage(context, t),
     );
   }
 }
 
-class _Spine extends StatelessWidget {
-  const _Spine(this.w, this.h, this.hue);
-  final double w, h;
-  final int hue;
+class _FilmStripPainter extends CustomPainter {
+  const _FilmStripPainter(this.t);
+  final double t; // 0..1, how far the strip has slid into place
+
+  static const _hues = [28, 200, 330, 150, 48, 262, 12, 180];
+  static const _pitch = 66.0, _frameW = 54.0, _bandH = 104.0;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: w,
-    height: h,
-    decoration: BoxDecoration(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [hsl(hue, 58, 40), hsl(hue, 62, 20)]),
-    ),
-    child: Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        margin: const EdgeInsets.only(top: 12),
-        width: w * .5,
-        height: 3,
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: .35), borderRadius: BorderRadius.circular(2)),
-      ),
-    ),
-  );
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    canvas
+      ..save()
+      ..translate(w / 2, h / 2)
+      ..rotate(-.07)
+      ..translate(-w / 2, -h / 2);
+
+    final top = (h - _bandH) / 2;
+    canvas.drawRect(Rect.fromLTRB(-80, top, w + 80, top + _bandH), Paint()..color = const Color(0xFF0A0B0D));
+    final edge = Paint()..color = const Color(0xFF23262C);
+    canvas
+      ..drawRect(Rect.fromLTWH(-80, top, w + 160, 1), edge)
+      ..drawRect(Rect.fromLTWH(-80, top + _bandH - 1, w + 160, 1), edge);
+
+    final off = -2 * _pitch * (1 - t); // slides right into place
+    final hole = Paint()..color = const Color(0xFF22252B);
+    const holePitch = 15.0;
+    for (var x = -80 + (off % holePitch); x < w + 80; x += holePitch) {
+      canvas
+        ..drawRRect(RRect.fromLTRBR(x, top + 7, x + 9, top + 14, const Radius.circular(2)), hole)
+        ..drawRRect(RRect.fromLTRBR(x, top + _bandH - 14, x + 9, top + _bandH - 7, const Radius.circular(2)), hole);
+    }
+
+    final n = ((w + 160) / _pitch).ceil() + 3;
+    for (var i = -3; i < n; i++) {
+      final x = i * _pitch + off - _pitch / 2;
+      final hue = _hues[i % _hues.length];
+      final rect = Rect.fromLTWH(x, top + 22, _frameW, _bandH - 44);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(5)),
+        Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [hsl(hue, 58, 36), hsl(hue, 62, 16)]).createShader(rect),
+      );
+      canvas.drawRRect(
+        RRect.fromLTRBR(x + _frameW * .25, rect.top + 9, x + _frameW * .75, rect.top + 12, const Radius.circular(1.5)),
+        Paint()..color = const Color(0x59FFFFFF),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_FilmStripPainter old) => old.t != t;
 }
