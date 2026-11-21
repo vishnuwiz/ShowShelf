@@ -9,6 +9,12 @@ import 'art.dart';
 
 /// Inline stroke icons (24 grid). No emoji, no text glyphs.
 abstract final class I {
+  static const mail = '<rect x="3.5" y="5.5" width="17" height="13" rx="3"/><path d="m4.5 7.5 7.5 5.5 7.5-5.5"/>';
+  static const eye = '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>';
+  static const eyeOff =
+      '<path d="M4 4l16 16M10.3 6A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3 3.8M6.5 7.7A15.5 15.5 0 0 0 2.5 12S6 18.5 12 18.5a9.3 9.3 0 0 0 3.5-.7"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+  static const alert = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.2h.01"/>';
+  static const logout = '<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/>';
   static const home = '<path d="M4 11.5 12 5l8 6.5V20h-5v-5.5H9V20H4z"/>';
   static const compass = '<circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>';
   static const library = '<path d="M5 4h4v16H5zM11 4h4v16h-4z"/><path d="m17 5.5 3.5.9-3.4 13.6-3.5-.9z"/>';
@@ -741,6 +747,40 @@ class _SearchFieldState extends State<SearchField> {
           ),
           ?widget.trailing,
         ],
+      ),
+    );
+  }
+}
+
+/// Full-width 52px button: lime when primary, outlined when secondary.
+class SsButton extends StatelessWidget {
+  const SsButton({super.key, required this.label, required this.onTap, this.busy = false, this.secondary = false});
+  final String label;
+  final VoidCallback onTap;
+  final bool busy, secondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Ss.of(context);
+    final fg = secondary ? c.text : c.onAccent;
+    return Tap(
+      label: label,
+      onTap: busy ? null : onTap,
+      child: Container(
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: secondary ? Colors.transparent : c.accent,
+          borderRadius: BorderRadius.circular(16),
+          border: secondary ? Border.all(color: c.isDark ? c.line : c.edge) : null,
+        ),
+        child: busy
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: fg),
+              )
+            : Text(label, style: ts(16, w: FontWeight.w700, color: fg)),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../shell.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../ui/kit.dart';
+import 'account.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -248,6 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   PosterCard(byId(id), width: 104, onTap: () => openTitle(context, id), caption: '${s.ratings[id] ?? '–'} of 5', star: c.accentInk),
               ],
             ),
+            const AccountSection(),
             const H2('Settings'),
             px(
               Container(

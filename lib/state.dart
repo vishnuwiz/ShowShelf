@@ -61,8 +61,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     for (final t in [..._timers, _toastTimer, _celebrateTimer, _saveTimer]) {
       t?.cancel();
     }
@@ -81,6 +84,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _observing = true;
     try {
       final saved = await c.load();
+      if (_disposed) return;
       if (saved == null) {
         _dirty = true;
       } else {
